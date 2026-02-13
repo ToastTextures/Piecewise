@@ -1,14 +1,14 @@
----@module "piecewise.piece"
 --#region Toast.Defaults
-local utils = require("./utils")
+local utils = require("./utils") ---@type Toast.Utils
 local Logger = utils.Logger
 
 local CURRENT_OUTFIT = {} ---@generic T: Toast.Piece ---@type T[]
-local ALL_PIECES = { count = 0 } ---@generic T: Toast.Piece ---@type {count: integer, [number]: T}
 local ALL_MODEL_PARTS = {} ---@type table<string, ModelPart>
 
 local EMPTY_VECTOR = vec(0, 0, 0)
 local BODY_OFFSET = vec(0, -12, 0)
+
+local PIECEWISE_VERSION = "0.0.4"
 
 ---@type table<Toast.Part, Vector3> The default offsets for each part type. This is used to determine the offset for the skull position.
 local SKULL_OFFSETS = {
@@ -26,7 +26,7 @@ local SKULL_OFFSETS = {
 --#region Toast.Piece
 
 ---@class Toast.Piece
-local Piece = {}
+local Piece = { _ALL = { count = 0 }, type = "Piece" }
 Piece.__index = Piece
 
 function Piece:updateModelParts(parts)
@@ -39,12 +39,19 @@ end
 
 function Piece:new(name, options)
     options = options or {} ---@type Toast.Piece.Options
+    if options.compatibility and client.compareVersions(PIECEWISE_VERSION, options.compatibility) ~= 0 then
+        Logger.warn(("Version incompatibility, this Piece expects %s, found %s!"):format(PIECEWISE_VERSION, options.compatibility))
+    end
     options.skullOffset = options.skullOffset or (options.part and SKULL_OFFSETS[options.part]) or EMPTY_VECTOR
     options.modelParts = options.modelParts or {}
-    local inst = setmetatable({ name = name, options = options, onToggle = {}}, { __index = self })
+    ---@generic T: Toast.Piece
+    ---@type T
+    local inst = setmetatable({ name = name, options = options, onToggle = {}}, { __index = function(t, k)
+        return k == "_ALL" and nil or self[k]
+        end })
     inst.id = utils.stringHash(name)
-    ALL_PIECES[inst.id] = inst
-    ALL_PIECES.count = ALL_PIECES.count + 1
+    Piece._ALL[inst.id] = inst
+    Piece._ALL.count = Piece._ALL.count + 1
     inst:updateModelParts(options.modelParts)
     return inst
 end
@@ -55,11 +62,16 @@ function Piece:copy(name, options)
         options[option] = options[option] or value
     end
     local inst = self:new(name, options)
+    inst.parent = self.name
     return inst
 end
 
+function Piece:isCopy()
+    return self.parent ~= nil
+end
+
 function Piece:simplify()
-    return { name = self.name }
+    return { name = self.name, ver = self.options.compatibility or PIECEWISE_VERSION }
 end
 
 function Piece:registerToggle(fun)
@@ -122,7 +134,7 @@ end
 --#region Toast.Outfit
 
 config:setName("Toast.Piecewise")
-config:save("version", "0.0.3")
+config:save("version", PIECEWISE_VERSION)
 
 ---@class Toast.Outfit
 local Outfit = {
@@ -163,8 +175,8 @@ function Outfit.deserialize(str)
     buf:writeByteArray(str)
     buf:setPosition(0)
 
-    for _ = 1, ALL_PIECES.count do --- Limit so we don't have an infinite loop, but still have a chance to read everything
-        local piece = ALL_PIECES[buf:readInt()]
+    for _ = 1, Piece._ALL.count do --- Limit so we don't have an infinite loop, but still have a chance to read everything
+        local piece = Piece._ALL[buf:readInt()]
         if not piece then break end --- Reading was somehow corrupted, will wait until the next sync ping
         piece:deserialize(buf)
         if buf:available() <= 0 then break end

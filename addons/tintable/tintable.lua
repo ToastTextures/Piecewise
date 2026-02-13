@@ -1,15 +1,14 @@
-local Logger = require("./utils").Logger
+local Logger = require("piecewise.utils").Logger
 local Recolor = require("./recolor") ---@type Toast.Recolor
-local Piece = require("./piece") ---@type Toast.Piece
+local Piece = require("piecewise.core") ---@type Toast.Piece
 
 ---@class Toast.Tintable: Toast.Piece
-local Tintable = setmetatable({}, { __index = Piece })
+local Tintable = setmetatable({type = "Tintable"}, { __index = Piece })
 Tintable.__index = Tintable
 
 --#region Toast.Defaults
 
-local EMPTY_VECTOR = vectors.vec3()
-
+local EMPTY_VECTOR = vec(0,0,0)
 
 --- Colors meant to be replaced when using a `Tintable`, add more if you use more than 5 colors per piece (you criminal)
 ---@type table<Toast.Layer, Toast.Recolor.Palette>
@@ -19,7 +18,6 @@ local DEFAULT_MASK = { ---@diagnostic disable-line assign-type-mismatch
 } 
 
 --#endregion Toast.Defaults
-
 
 local function apply(color, inPalette, layer)
     local match = inPalette[layer[vectors.rgbToHex(color.xyz)]]
