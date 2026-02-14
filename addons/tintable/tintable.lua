@@ -1,6 +1,6 @@
-local Logger = require("../piecewise.utils").Logger
+local Logger = require("../utils").Logger
 local Recolor = require("./recolor") ---@type Toast.Recolor
-local Piece = require("../piecewise.core") ---@type Toast.Piece
+local Piece = require("../core") ---@type Toast.Piece
 
 ---@class Toast.Tintable: Toast.Piece
 local Tintable = setmetatable({type = "Tintable"}, { __index = Piece })
