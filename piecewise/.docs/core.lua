@@ -61,6 +61,8 @@ end
 function Piece:copy(name, options) end
 
 ---Sets the visibility of a piece.
+---
+---! THIS IS INTERNAL, NOT MEANT TO BE CONFUSED WITH `Piece:setEquipped()` !
 ---@param visible boolean
 ---@return self
 function Piece:setVisible(visible) end
@@ -107,6 +109,10 @@ function Piece:equip() end
 ---Unequips a piece.
 ---@return self
 function Piece:unequip() end
+
+--- Sets the equip-state of a piece.
+---@param state boolean
+function Piece:setEquipped(state) end
 
 ---Automatically equips a piece when a condition is met.
 ---@generic T: Toast.Piece

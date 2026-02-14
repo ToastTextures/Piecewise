@@ -1,5 +1,4 @@
-local utils = require("piecewise.utils")
-
+local utils = require("../piecewise.utils")
 
 ---@class Toast.Recolor
 local Recolor = {}
