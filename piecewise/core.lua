@@ -129,6 +129,10 @@ function Piece:unequip()
     return self
 end
 
+function Piece:setEquipped(state)
+    if state then self:equip() else self:unequip() end
+end
+
 function Piece:equipWhen(fun)
     local scope = {prev = self.visibility}
     utils.runLater(function() 
@@ -140,11 +144,7 @@ function Piece:equipWhen(fun)
         end
     end,
     function()
-        if self.visibility then
-            self:unequip()
-        else
-            self:equip()
-        end
+        self:setEquipped(not self.visibility)
     end, false)
     return self
 end
