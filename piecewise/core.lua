@@ -183,14 +183,8 @@ function Outfit.simplify()
     return output
 end
 
-function Outfit.deserialize(str)
-    for _, modelPart in pairs(ALL_MODEL_PARTS) do
-        modelPart:setVisible(false)
-    end
-    for _, piece in pairs(CURRENT_OUTFIT) do
-        piece:unequip()
-    end
-
+function Outfit.runOnCompressed(str, op)
+    local collected = {}
     local buf = data:createBuffer(#str)
     buf:writeByteArray(str)
     buf:setPosition(0)
@@ -198,11 +192,26 @@ function Outfit.deserialize(str)
     for _ = 1, Piece._ALL.count do --- Limit so we don't have an infinite loop, but still have a chance to read everything
         local piece = Piece._ALL[buf:readInt()]
         if not piece then break end --- Reading was somehow corrupted, will wait until the next sync ping
-        piece:deserialize(buf)
+        collected[#collected + 1] = piece
         if buf:available() <= 0 then break end
+        op(piece, buf)
     end
     buf:close()
+    return collected
 end
+
+function Outfit.deserialize(str)
+    for _, modelPart in pairs(ALL_MODEL_PARTS) do
+        modelPart:setVisible(false)
+    end
+    for _, piece in pairs(CURRENT_OUTFIT) do
+        piece:unequip()
+    end
+    Outfit.runOnCompressed(str, function(piece, buf)
+        piece:deserialize(buf) 
+    end)
+end
+
 
 function pings.updateOutfit(serialized)
     if not host:isHost() then
@@ -213,7 +222,7 @@ function pings.updateOutfit(serialized)
 end
 function Outfit:save(name)
     self.cache[name] = self.serialize(CURRENT_OUTFIT) --- SHUT UP I KNOW WHAT'S IN THE TABLE
-    config:setName("Toast.Outfits")
+    config:setName("Toast.Piecewise")
     config:save("saved", self.cache)
     return self.cache[name]
 end
