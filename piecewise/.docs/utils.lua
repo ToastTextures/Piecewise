@@ -6,7 +6,8 @@ local utils
 ---Schedules a function to run after a certain amount of ticks.
 ---@param ticks number|function Amount of ticks to wait, or a predicate function to check each tick until it returns true
 ---@param next function Function to run after amount of ticks, or after the predicate function returned true
-function utils.runLater(ticks, next) end
+---@param discard boolean Determines if the function should be ran more than once. 
+function utils.runLater(ticks, next, discard) end
 
 ---Adds elements from one table to another.
 ---@param from table

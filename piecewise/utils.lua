@@ -4,9 +4,9 @@ local utils = {}
 ---- Run Later by manuel_2867 ----
 local tmrs = {}
 local t = 0
-function utils.runLater(ticks, next)
+function utils.runLater(ticks, next, triggerOnce)
     local x = type(ticks) == "number"
-    table.insert(tmrs, { t = x and t + ticks, p = x and function() end or ticks, n = next })
+    table.insert(tmrs, { t = x and t + ticks, p = x and function() end or ticks, n = next, triggerOnce = triggerOnce or true })
 end
 
 function events.TICK()
@@ -14,7 +14,9 @@ function events.TICK()
     for key, timer in pairs(tmrs) do
         if timer.p() or (timer.t and t >= timer.t) then
             timer.n()
-            tmrs[key] = nil
+            if (timer.triggerOnce) then
+                tmrs[key] = nil
+            end
         end
     end
 end

@@ -102,11 +102,17 @@ function Piece:__toggle() end
 
 ---Equips a piece.
 ---@return self
-function Piece:equip()
+function Piece:equip() end
 
 ---Unequips a piece.
 ---@return self
-function Piece:unequip()
+function Piece:unequip() end
+
+---Automatically equips a piece when a condition is met.
+---@generic T: Toast.Piece
+---@param fun fun(self: self): boolean
+---@return self
+function Piece:equipWhen(fun) end
 
 ---@class Toast.Outfit
 local Outfit

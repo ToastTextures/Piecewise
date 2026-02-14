@@ -129,6 +129,26 @@ function Piece:unequip()
     return self
 end
 
+function Piece:equipWhen(fun)
+    local scope = {prev = self.visibility}
+    utils.runLater(function() 
+        local curr = fun(self)
+    
+        if curr ~= scope.prev then
+            scope.prev = curr
+            return true
+        end
+    end,
+    function()
+        if self.visibility then
+            self:unequip()
+        else
+            self:equip()
+        end
+    end, false)
+    return self
+end
+
 --#endregion Toast.Piece
 
 --#region Toast.Outfit
