@@ -6,7 +6,14 @@ local tmrs = {}
 local t = 0
 function utils.runLater(ticks, next, discard)
     local x = type(ticks) == "number"
-    table.insert(tmrs, { t = x and t + ticks, p = x and function() end or ticks, n = next, discard = (discard == nil) and true or discard })
+    table.insert(tmrs,
+        {
+            t = x and t + ticks,
+            p = x and function() end or ticks,
+            n = next,
+            discard = (discard == nil) and true or
+                discard
+        })
 end
 
 function events.TICK()
@@ -38,6 +45,7 @@ local function prettyPrint(name, color, ...)
         table.insert(json, { text = value .. " ", color = color })
     end
     table.insert(json, { text = "\n" })
+    printJson(toJson(json))
 end
 
 local Logger = { level = 2, levels = -1 } --- only shows warns in prod
@@ -77,10 +85,36 @@ function utils.swapValues(tab)
     return output
 end
 
+function utils.deepCopy(model)
+    local copy = model:copy(model:getName())
+    for _, child in pairs(copy:getChildren()) do
+        copy:removeChild(child):addChild(utils.deepCopy(child):setParentType("NONE"))
+    end
+    return copy
+end
+
 Logger.debug = utils.newLogger("debug", "dark_aqua")
 Logger.info = utils.newLogger("info", "green")
 Logger.warn = utils.newLogger("warn", "yellow")
 
 utils.Logger = Logger
 
+
+local MINECRAFT_FORMATS = {
+    PRE_COMPONENT = {
+        parse = function(item) return item:getTag().PiecewiseData end,
+        format = "minecraft:player_head{SkullOwner:%s,PiecewiseData:%d}",
+        formatList = "minecraft:player_head{SkullOwner:%s,PiecewiseData:%s}"
+    },
+    POST_COMPONENT = {
+        parse = function(item) return item:getTag()["minecraft:custom_data"].PiecewiseData end,
+        format = "minecraft:player_head[profile=%s,custom_data={PiecewiseData:%d}]",
+        formatList = "minecraft:player_head[profile=%s,custom_data={PiecewiseData:%s}]"
+    }
+}
+
+local versions = client.compareVersions(client:getVersion(), "1.20.5") >= 0
+    and MINECRAFT_FORMATS.POST_COMPONENT or MINECRAFT_FORMATS.PRE_COMPONENT
+
+utils.versions = versions
 return utils

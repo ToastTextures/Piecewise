@@ -6,7 +6,7 @@ local utils
 ---Schedules a function to run after a certain amount of ticks.
 ---@param ticks number|function Amount of ticks to wait, or a predicate function to check each tick until it returns true
 ---@param next function Function to run after amount of ticks, or after the predicate function returned true
----@param discard boolean Determines if the function should be ran more than once. 
+---@param discard boolean Determines if the function should be ran more than once.
 function utils.runLater(ticks, next, discard) end
 
 ---Adds elements from one table to another.
@@ -31,3 +31,9 @@ function utils.swapValues(tab) end
 ---@param color any
 ---@return Toast.Logger
 function utils.newLogger(name, color) end
+
+
+--- Creates a copy of a modelpart without references to the original
+---@param part ModelPart
+---@return ModelPart
+function utils.deepCopy(part)

@@ -56,7 +56,7 @@ end
 
 ---Creates a copy of a piece, using the original piece as defaults.
 ---@param name string The name of the new piece.
----@param options Toast.Piece.Options? The options given to the Piece
+---@param options Toast.Piece.Options The options given to the Piece
 ---@return self
 function Piece:copy(name, options) end
 
@@ -87,7 +87,7 @@ function Piece:deserialize(buf) end
 ---Updates all of the model parts and adds them to a collection of parts
 ---so they're not read multiple times.
 ---@param parts ModelPart[]
----@return self 
+---@return self
 function Piece:updateModelParts(parts) end
 
 ---Modifies the UVs of the model parts (allows for model parts to belong to multiple pieces)
