@@ -1,0 +1,7 @@
+{
+  "name": "Piecewise Playground",
+  "description": "",
+  "authors": [""],
+  "autoScripts": ["showcase", "piecewise.wheel.wheel", "piecewise.core"],
+  "color": "#5ea5ff"
+}

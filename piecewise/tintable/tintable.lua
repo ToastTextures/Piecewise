@@ -1,5 +1,3 @@
-print("I am being called")
-
 local Logger = require("../utils").Logger
 local Recolor = require("./recolor") ---@type Toast.Recolor
 local Piece = require("../core") ---@type Toast.Piece

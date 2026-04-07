@@ -4,14 +4,13 @@ local MAIN_PAGE = page -- HEY YOU, YES YOU | UPDATE THIS IF YOU USE THE ACTION W
 local Piece, Outfit = require("../core") ---@type Toast.Piece, Toast.Outfit
 local Tintable ---@type Toast.Tintable?
 local utils = require("../utils") ---@type Toast.Utils
+local Stitcher = require("./stitcher")
 local validated, _t = pcall(function() return require("../tintable.tintable") end)
 if validated then Tintable = _t end
 
 if not host:isHost() then return end
 
 local OUTFIT_OFFSET = vec(0, -4, 0)
-
-local OUTFIT_TEXTURE_REGISTRY = {}
 
 local prevPage ---@type Page
 local categories = {} ---@type table<Toast.Part, Page>
@@ -75,7 +74,6 @@ local function registerFromStorage()
         for _, piece in ipairs(Outfit.runOnCompressed(data, justDeserialize)) do
             ids[#ids + 1] = piece.id
         end
-        print(toJson(ids))
         categories.OUTFIT:newAction()
             :setTitle(name)
             :onLeftClick(function()
@@ -91,7 +89,7 @@ local SKULL = models:newPart("Piecewise.Skull", "SKULL")
 ---@param piece Toast.Piece
 local function clone(piece)
     local cloned
-
+    Stitcher.addToRegistry(piece)
     for _, part in pairs(piece.options.modelParts) do
         cloned = utils.deepCopy(part)
         cloned:setPos(piece.options.skullOffset)
@@ -143,7 +141,7 @@ for id, piece in pairs(Piece._ALL) do
     categories[partType]:newAction()
         :setItem(utils.versions.format:format(avatar:getEntityName(), id))
         :setTitle(piece.name)
-        :onToggle(function(state, self)
+        :onToggle(function(state)
             if state then piece:equip() else piece:unequip() end
 
             if piece.type == "Tintable" and piece.options.palette then ---@cast piece Toast.Tintable ---@cast piece.options Toast.Tintable.Options
