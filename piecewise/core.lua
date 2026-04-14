@@ -8,7 +8,7 @@ local ALL_MODEL_PARTS = {} ---@type table<string, ModelPart>
 local EMPTY_VECTOR = vec(0, 0, 0)
 local BODY_OFFSET = vec(0, -12, 0)
 
-local PIECEWISE_VERSION = "0.1.0"
+local PIECEWISE_VERSION = "0.1.1"
 
 ---@type table<Toast.Part, Vector3> The default offsets for each part type. This is used to determine the offset for the skull position.
 local DEFAULT_SKULL_OFFSETS = {
@@ -19,6 +19,13 @@ local DEFAULT_SKULL_OFFSETS = {
     RIGHT_HAND = BODY_OFFSET,
     PANTS = EMPTY_VECTOR,
     SHOES = EMPTY_VECTOR,
+}
+
+---@type table<Toast.Extra.Layer, integer>
+local layerTypes = {
+    LOW = 1,
+    HALF = 2,
+    FULL = 3
 }
 
 --#endregion Toast.Core.Defaults
@@ -117,6 +124,16 @@ end
 
 --- Modifiers ---
 
+function Piece:updateLayers(layer)
+    if not self.options.layers then return end
+    if not self.options.layers[layer] then return end
+    for type, modelList in pairs(self.options.layers) do
+        for _, modelPart in ipairs(modelList) do
+            modelPart:setVisible(layerTypes[type] <= layerTypes[layer])
+        end
+    end
+end
+
 function Piece:setVisible(visible)
     for _, part in pairs(self.options.modelParts) do
         part:setVisible(visible)
@@ -143,6 +160,9 @@ function Piece:equip()
     Logger.debug(self.name, "has been equipped")
     CURRENT_OUTFIT[self.id] = self
     self:setVisible(true):setUV()
+    if self.options.layer then
+        self:updateLayers(self.options.layer)
+    end
     return self
 end
 
@@ -208,7 +228,6 @@ function Outfit.simplify()
 end
 
 function Outfit.deserialize(str)
-    print(str)
     for _, modelPart in pairs(ALL_MODEL_PARTS) do
         modelPart:setVisible(false)
     end
@@ -228,7 +247,26 @@ function pings.updateOutfit(serialized)
     avatar:store("Piecewise.Current", outfitView)
 end
 
+__name = nil
 function Outfit:save(name)
+    if (self.cache[name]) then
+        if Logger.warn("Overwriting piece with same name!",
+                "Changes will be applied when the avatar is reloaded")
+        then
+            __name = utils.base64(self.cache[name])
+            printJson(toJson({
+                text = "[Copy old code to clipboard]",
+                color = "green",
+                clickEvent = {
+                    action = "figura_function",
+                    value =
+                    "require(\"piecewise.core\") host:clipboard(__name) __name = nil",
+
+                }
+            }))
+        end
+    end
+
     self.cache[name] = self.serialize(CURRENT_OUTFIT) --- SHUT UP I KNOW WHAT'S IN THE TABLE
     config:setName("Toast.Piecewise")
     config:save("saved", self.cache)

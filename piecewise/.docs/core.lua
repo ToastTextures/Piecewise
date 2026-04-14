@@ -14,6 +14,11 @@
 ---| "Piece"
 ---| "Tintable"
 
+---@alias Toast.Extra.Layer
+---| "LOW"
+---| "HALF"
+---| "FULL
+
 ---@alias Toast.ToggleEvent fun(state: boolean)
 
 --- Codec
@@ -26,7 +31,9 @@
 ---@field part Toast.Part? The part type. This is used to determine what category to put it under.
 ---@field texture Texture? The texture file to use for the piece. Useful if you're setting the UV because there are multiple pieces with the same model parts. Uses the `bounds` option.
 ---@field modelParts ModelPart[] The model parts to use for the piece. This is used to determine what parts to toggle.
----@field compatibility string The compatibility level of the piece, if a piece is made on a newer version and is used on a lower script version then it might break.
+---@field compatibility string? The compatibility level of the piece, if a piece is made on a newer version and is used on a lower script version then it might break. If not present, assumed to be compatible with all versions.
+---@field layers table<Toast.Extra.Layer, ModelPart[]>? The layers for anything sticking out like tomatoes / lettuce or fur that should be hidden when a piece is equipped
+---@field layer Toast.Extra.Layer? The layer actually assigned to the part
 
 ---@class Toast.Piece The basic piece type. Supports UV remapping and texture swapping.
 ---@field type Toast.Piece.Type

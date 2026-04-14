@@ -1,5 +1,3 @@
-print("I am being called")
-
 local Logger = require("../utils").Logger
 local Recolor = require("./recolor") ---@type Toast.Recolor
 local Piece = require("../core") ---@type Toast.Piece
@@ -71,10 +69,11 @@ function Tintable:new(name, options)
     return inst
 end
 
-function Tintable:reset()
+function Tintable:reset(cleanTexture)
+    if cleanTexture == nil then cleanTexture = true end
     self.options.primary = 0
     self.options.secondary = 0
-    if self.options.texture then
+    if self.options.texture and cleanTexture then
         self.options.texture:restore():update()
     end
 end
@@ -86,7 +85,7 @@ function Tintable:simplify()
     return simplified
 end
 
-function Tintable:setColor(primary, secondary)
+function Tintable:setColor(primary, secondary, clean)
     self:setUV()
     local reset = false
     for layer, value in pairs({ PRIMARY = primary, SECONDARY = secondary }) do
@@ -101,7 +100,7 @@ function Tintable:setColor(primary, secondary)
 
         if (value == self.options[layer:lower()]) then goto continue end
         if not reset then
-            self:reset()
+            self:reset(clean)
             reset = not reset
         end
 

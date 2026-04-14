@@ -42,7 +42,7 @@ local function prettyPrint(name, color, ...)
     }
     for _, value in ipairs({ ... }) do
         if type(value) ~= "string" then value = tostring(value) end
-        table.insert(json, { text = value .. " ", color = color })
+        table.insert(json, { text = value .. "\n", color = color })
     end
     table.insert(json, { text = "\n" })
     printJson(toJson(json))
@@ -54,12 +54,23 @@ function utils.newLogger(name, color)
     Logger.levels = Logger.levels + 1
     return setmetatable({ level = Logger.levels, name = name, color = color }, {
         __call = function(tab, ...)
-            if not host:isHost() then return end
+            if not host:isHost() then return false end
             if (tab.level >= Logger.level) then
                 prettyPrint(name, color, ...)
+                return true
             end
+            return false
         end,
     })
+end
+
+function utils.base64(str)
+    local buffer = data:createBuffer()
+    buffer:writeByteArray(str)
+    buffer:setPosition(0)
+    local output = buffer:readBase64()
+    buffer:close()
+    return output
 end
 
 function utils.transferElements(from, to)
