@@ -1,25 +1,23 @@
-local Logger = require("./utils").Logger
+local Logger = require("../utils").Logger
 local Recolor = require("./recolor") ---@type Toast.Recolor
-local Piece = require("./piece") ---@type Toast.Piece
+local Piece = require("../core") ---@type Toast.Piece
 
 ---@class Toast.Tintable: Toast.Piece
-local Tintable = setmetatable({}, { __index = Piece })
+local Tintable = setmetatable({ type = "Tintable" }, { __index = Piece })
 Tintable.__index = Tintable
 
 --#region Toast.Defaults
 
-local EMPTY_VECTOR = vectors.vec3()
-
+local EMPTY_VECTOR = vec(0, 0, 0)
 
 --- Colors meant to be replaced when using a `Tintable`, add more if you use more than 5 colors per piece (you criminal)
 ---@type table<Toast.Layer, Toast.Recolor.Palette>
 local DEFAULT_MASK = { ---@diagnostic disable-line assign-type-mismatch
     PRIMARY = { ["f3f3f3"] = 1, ["e7e7e7"] = 2, ["cdcdcd"] = 3, ["b4b4b4"] = 4, ["9b9b9b"] = 5 },
     SECONDARY = { ["808080"] = 1, ["666666"] = 2, ["4d4d4d"] = 3, ["333333"] = 4, ["1a1a1a"] = 5 },
-} 
+}
 
 --#endregion Toast.Defaults
-
 
 local function apply(color, inPalette, layer)
     local match = inPalette[layer[vectors.rgbToHex(color.xyz)]]
@@ -61,7 +59,7 @@ function Tintable:new(name, options)
     local inst = Piece.new(self, name, options) ---@type Toast.Tintable
     inst.tint = tintMethods[inst.options.tintMethod or "SIMPLE"]
     if options.tintMethod == "PALETTE" and not options.palette then
-        Logger.warn("No palette found for " .. name.. ", reverting to SIMPLE tint mode.")
+        Logger.warn("No palette found for " .. name .. ", reverting to SIMPLE tint mode.")
         inst.tint = tintMethods.SIMPLE
     elseif options.palette and type(options.palette[1][1]) == "string" then
         for _, value in ipairs(options.palette) do
@@ -71,10 +69,11 @@ function Tintable:new(name, options)
     return inst
 end
 
-function Tintable:reset()
+function Tintable:reset(cleanTexture)
+    if cleanTexture == nil then cleanTexture = true end
     self.options.primary = 0
     self.options.secondary = 0
-    if self.options.texture then 
+    if self.options.texture and cleanTexture then
         self.options.texture:restore():update()
     end
 end
@@ -86,7 +85,7 @@ function Tintable:simplify()
     return simplified
 end
 
-function Tintable:setColor(primary, secondary)
+function Tintable:setColor(primary, secondary, clean)
     self:setUV()
     local reset = false
     for layer, value in pairs({ PRIMARY = primary, SECONDARY = secondary }) do
@@ -101,7 +100,7 @@ function Tintable:setColor(primary, secondary)
 
         if (value == self.options[layer:lower()]) then goto continue end
         if not reset then
-            self:reset()
+            self:reset(clean)
             reset = not reset
         end
 
@@ -120,8 +119,8 @@ function Tintable:serialize(buf)
     -- Or modify it to use a full byte
     if (options.tintMethod == "INDEXED") or (options.tintMethod == "PALETTE") then
         buf:write(bit32.bor(
-        bit32.lshift(options.primary or 0, 4) or 0, 
-        options.secondary or 0)
+            bit32.lshift(options.primary or 0, 4) or 0,
+            options.secondary or 0)
         )
     else
         local primary, secondary = options.primary, options.secondary
@@ -138,7 +137,6 @@ end
 
 ---@param buf Buffer
 function Tintable:deserialize(buf)
-    self:equip()
     --- So basically it will always send a color, but the client won't actually recalculate the piece's color unless it actually changed
     --- Cause like what if a client misses it???
     local primary, secondary

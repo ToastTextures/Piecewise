@@ -1,5 +1,4 @@
-local utils = require("./utils")
-
+local utils = require("../utils")
 
 ---@class Toast.Recolor
 local Recolor = {}
@@ -59,29 +58,34 @@ end
 
 ---@type table<Toast.Recolor.RemapMode, table<Toast.Recolor.RemapMode, fun(value): Toast.Recolor.Remappable>>
 local remapModes = {
-    RGB = { HEX = function(value) return vectors.hexToRGB(value) end, INT = function(value) return vectors.intToRGB(value) end },
-    INT = { HEX = function(value) return vectors.rgbToInt(vectors.hexToRGB(value)) end, RGB = function(value) return vectors.rgbToInt(value) end },
-    HEX = { INT = function(value) return vectors.rgbToHex(vectors.intToRGB(value)) end, RGB = function(value) return vectors.rgbToHex(value) end }
+    RGB = { HEX = function(value) return vectors.hexToRGB(value) end, INT = function(value) return vectors.intToRGB(
+        value) end },
+    INT = { HEX = function(value) return vectors.rgbToInt(vectors.hexToRGB(value)) end, RGB = function(value) return
+        vectors.rgbToInt(value) end },
+    HEX = { INT = function(value) return vectors.rgbToHex(vectors.intToRGB(value)) end, RGB = function(value) return
+        vectors.rgbToHex(value) end }
 }
 
 function Recolor.remapTo(value, mode)
     local valType = type(value)
-    local valMode = (valType == "number" and "INT") or (valType == "Vector3" and "RGB") or (valType == "string" and "HEX") or nil ---@type Toast.Recolor.RemapMode?
+    local valMode = (valType == "number" and "INT") or (valType == "Vector3" and "RGB") or
+    (valType == "string" and "HEX") or nil ---@type Toast.Recolor.RemapMode?
     if not valMode then error("Wtf are you trying to remap???") end
 
     if valMode == mode then return value end
     return remapModes[mode][valMode](value)
 end
+
 function Recolor.mapPaletteToRGB(palette)
     for key, value in pairs(palette) do
-        local rgb = Recolor.remapTo(value, "RGB")  ---@cast rgb Vector3
+        local rgb = Recolor.remapTo(value, "RGB") ---@cast rgb Vector3
         palette[key] = rgb:augmented(1) ---@diagnostic disable-line assign-type-mismatch
     end
 end
 
 ---@type Vector.applyFunc
-local clampVector = function (value, _) return math.clamp(value, 0, 1) end --- My Kotlin lambda variables :sob:
-   
+local clampVector = function(value, _) return math.clamp(value, 0, 1) end  --- My Kotlin lambda variables :sob:
+
 ---Actually quite proud of this
 function Recolor.generatePalette(input)
     input = Recolor.remapTo(input, "RGB") ---@cast input Vector3
@@ -99,7 +103,7 @@ function Recolor.generatePalette(input)
     elseif color.y < 0.65 or color.y > 0.9 then                --- Mids
         satOffset = 3
         valueOffset = valueOffset + 1
-    else                                                       --- Hypersaturateds again
+    else --- Hypersaturateds again
         satOffset = 5
     end
     if 0.25 < color.x and color.x < 0.43 then --- Limes/Greens go towards blue

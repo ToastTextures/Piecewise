@@ -25,7 +25,7 @@ function Tintable:new(name, options) end
 
 ---Creates a copy of a piece, using the original piece as defaults
 ---@param name string The name of the new piece.
----@param options Toast.Tintable.Options The options given to the Piece
+---@param options Toast.Tintable.Options? The options given to the Piece
 ---@return self
 function Tintable:copy(name, options) end
 

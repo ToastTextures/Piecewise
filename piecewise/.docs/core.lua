@@ -10,6 +10,15 @@
 ---| "SHOES"
 ---| "OUTFIT"
 
+---@alias Toast.Piece.Type
+---| "Piece"
+---| "Tintable"
+
+---@alias Toast.Extra.Layer
+---| "LOW"
+---| "HALF"
+---| "FULL
+
 ---@alias Toast.ToggleEvent fun(state: boolean)
 
 --- Codec
@@ -22,8 +31,14 @@
 ---@field part Toast.Part? The part type. This is used to determine what category to put it under.
 ---@field texture Texture? The texture file to use for the piece. Useful if you're setting the UV because there are multiple pieces with the same model parts. Uses the `bounds` option.
 ---@field modelParts ModelPart[] The model parts to use for the piece. This is used to determine what parts to toggle.
+---@field compatibility string? The compatibility level of the piece, if a piece is made on a newer version and is used on a lower script version then it might break. If not present, assumed to be compatible with all versions.
+---@field layers table<Toast.Extra.Layer, ModelPart[]>? The layers for anything sticking out like tomatoes / lettuce or fur that should be hidden when a piece is equipped
+---@field layer Toast.Extra.Layer? The layer actually assigned to the part
 
 ---@class Toast.Piece The basic piece type. Supports UV remapping and texture swapping.
+---@field type Toast.Piece.Type
+---@field package _ALL {count: integer, [integer]: T} All of the registered pieces. SHOULD NOT BE MODIFIED BY THE USER (I will find you)
+---@field parent string? The parent of a piece if it was copied.
 ---@field __index Toast.Piece
 ---@field name string The name of the piece.
 ---@field id integer The internal identifier used for the piece.
@@ -53,6 +68,8 @@ end
 function Piece:copy(name, options) end
 
 ---Sets the visibility of a piece.
+---
+---! THIS IS INTERNAL, NOT MEANT TO BE CONFUSED WITH `Piece:setEquipped()` !
 ---@param visible boolean
 ---@return self
 function Piece:setVisible(visible) end
@@ -77,7 +94,7 @@ function Piece:deserialize(buf) end
 ---Updates all of the model parts and adds them to a collection of parts
 ---so they're not read multiple times.
 ---@param parts ModelPart[]
----@return self 
+---@return self
 function Piece:updateModelParts(parts) end
 
 ---Modifies the UVs of the model parts (allows for model parts to belong to multiple pieces)
@@ -94,11 +111,21 @@ function Piece:__toggle() end
 
 ---Equips a piece.
 ---@return self
-function Piece:equip()
+function Piece:equip() end
 
 ---Unequips a piece.
 ---@return self
-function Piece:unequip()
+function Piece:unequip() end
+
+--- Sets the equip-state of a piece.
+---@param state boolean
+function Piece:setEquipped(state) end
+
+---Automatically equips a piece when a condition is met.
+---@generic T: Toast.Piece
+---@param fun fun(self: self): boolean
+---@return self
+function Piece:equipWhen(fun) end
 
 ---@class Toast.Outfit
 local Outfit

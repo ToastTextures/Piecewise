@@ -1,17 +1,17 @@
----@module "piecewise.piece"
---#region Toast.Defaults
-local utils = require("./utils")
+--#region Toast.Core.Defaults
+local utils = require("./utils") ---@type Toast.Utils
 local Logger = utils.Logger
 
 local CURRENT_OUTFIT = {} ---@generic T: Toast.Piece ---@type T[]
-local ALL_PIECES = { count = 0 } ---@generic T: Toast.Piece ---@type {count: integer, [number]: T}
 local ALL_MODEL_PARTS = {} ---@type table<string, ModelPart>
 
 local EMPTY_VECTOR = vec(0, 0, 0)
 local BODY_OFFSET = vec(0, -12, 0)
 
+local PIECEWISE_VERSION = "0.1.0"
+
 ---@type table<Toast.Part, Vector3> The default offsets for each part type. This is used to determine the offset for the skull position.
-local SKULL_OFFSETS = {
+local DEFAULT_SKULL_OFFSETS = {
     HAT = vec(0, -24, 0),
     BODY_MAIN = BODY_OFFSET,
     BODY_LAYER = BODY_OFFSET,
@@ -21,13 +21,20 @@ local SKULL_OFFSETS = {
     SHOES = EMPTY_VECTOR,
 }
 
---#endregion Toast.Defaults
+---@type table<Toast.Extra.Layer, integer>
+local layerTypes = {
+    LOW = 1,
+    HALF = 2,
+    FULL = 3
+}
 
---#region Toast.Piece
+--#endregion Toast.Core.Defaults
 
 ---@class Toast.Piece
-local Piece = {}
+local Piece = { _ALL = { count = 0 }, type = "Piece" }
 Piece.__index = Piece
+
+--- Initialization ---
 
 function Piece:updateModelParts(parts)
     self.options.modelParts = parts
@@ -39,31 +46,72 @@ end
 
 function Piece:new(name, options)
     options = options or {} ---@type Toast.Piece.Options
-    options.skullOffset = options.skullOffset or (options.part and SKULL_OFFSETS[options.part]) or EMPTY_VECTOR
+    if options.compatibility and client.compareVersions(PIECEWISE_VERSION, options.compatibility) ~= 0 then
+        Logger.warn(("Version incompatibility, this Piece expects %s, found %s!"):format(PIECEWISE_VERSION,
+            options.compatibility))
+    end
+    options.skullOffset = options.skullOffset or (options.part and DEFAULT_SKULL_OFFSETS[options.part]) or EMPTY_VECTOR
     options.modelParts = options.modelParts or {}
-    local inst = setmetatable({ name = name, options = options, onToggle = {}}, { __index = self })
+    ---@generic T: Toast.Piece
+    ---@type T
+    local inst = setmetatable({ name = name, options = options, onToggle = {} }, {
+        __index = function(t, k)
+            return k == "_ALL" and nil or self[k]
+        end
+    })
     inst.id = utils.stringHash(name)
-    ALL_PIECES[inst.id] = inst
-    ALL_PIECES.count = ALL_PIECES.count + 1
+    Piece._ALL[inst.id] = inst
+    Piece._ALL.count = Piece._ALL.count + 1
     inst:updateModelParts(options.modelParts)
     return inst
 end
 
 function Piece:copy(name, options)
-    --- Inherits properties from its copy
     for option, value in pairs(self.options) do
         options[option] = options[option] or value
     end
     local inst = self:new(name, options)
+    inst.parent = self.name
     return inst
 end
 
-function Piece:simplify()
-    return { name = self.name }
+function Piece:isCopy()
+    return self.parent ~= nil
 end
+
+--- Conditionals ---
 
 function Piece:registerToggle(fun)
     self.onToggle[#self.onToggle + 1] = fun
+end
+
+function Piece:__toggle()
+    for _, event in ipairs(self.onToggle) do
+        event(self.visibility)
+    end
+    return self
+end
+
+function Piece:equipWhen(fun)
+    local scope = { prev = self.visibility }
+    utils.runLater(function()
+            local curr = fun(self)
+
+            if curr ~= scope.prev then
+                scope.prev = curr
+                return true
+            end
+        end,
+        function()
+            self:setEquipped(not self.visibility)
+        end, false)
+    return self
+end
+
+--- Packet Stuff ---
+
+function Piece:simplify()
+    return { name = self.name, version = self.options.compatibility or PIECEWISE_VERSION }
 end
 
 function Piece:serialize(buf)
@@ -71,8 +119,19 @@ function Piece:serialize(buf)
 end
 
 function Piece:deserialize(buf)
-    self:equip()
     return self
+end
+
+--- Modifiers ---
+
+function Piece:updateLayers(layer)
+    if not self.options.layers then return end
+    if not self.options.layers[layer] then return end
+    for type, modelList in pairs(self.options.layers) do
+        for _, modelPart in ipairs(modelList) do
+            modelPart:setVisible(layerTypes[type] <= layerTypes[layer])
+        end
+    end
 end
 
 function Piece:setVisible(visible)
@@ -97,17 +156,13 @@ function Piece:setUV()
     return self
 end
 
-function Piece:__toggle()
-    for _, event in ipairs(self.onToggle) do
-        event(self.visibility)
-    end
-    return self
-end
-
 function Piece:equip()
     Logger.debug(self.name, "has been equipped")
     CURRENT_OUTFIT[self.id] = self
     self:setVisible(true):setUV()
+    if self.options.layer then
+        self:updateLayers(self.options.layer)
+    end
     return self
 end
 
@@ -117,12 +172,16 @@ function Piece:unequip()
     return self
 end
 
+function Piece:setEquipped(state)
+    if state then self:equip() else self:unequip() end
+end
+
 --#endregion Toast.Piece
 
 --#region Toast.Outfit
 
 config:setName("Toast.Piecewise")
-config:save("version", "0.0.3")
+config:save("version", PIECEWISE_VERSION)
 
 ---@class Toast.Outfit
 local Outfit = {
@@ -130,6 +189,23 @@ local Outfit = {
 }
 
 config:save("saved", Outfit.cache)
+
+function Outfit.runOnCompressed(str, op)
+    local collected = {}
+    local buf = data:createBuffer(#str)
+    buf:writeByteArray(str)
+    buf:setPosition(0)
+
+    for _ = 1, Piece._ALL.count do  --- Limit so we don't have an infinite loop, but still have a chance to read everything
+        local piece = Piece._ALL[buf:readInt()]
+        if not piece then break end --- Reading was somehow corrupted, will wait until the next sync ping
+        collected[#collected + 1] = piece
+        if buf:available() <= 0 then break end
+        op(piece, buf)
+    end
+    buf:close()
+    return collected
+end
 
 function Outfit.serialize(pieces)
     local buf = data:createBuffer(256)
@@ -158,18 +234,9 @@ function Outfit.deserialize(str)
     for _, piece in pairs(CURRENT_OUTFIT) do
         piece:unequip()
     end
-
-    local buf = data:createBuffer(#str)
-    buf:writeByteArray(str)
-    buf:setPosition(0)
-
-    for _ = 1, ALL_PIECES.count do --- Limit so we don't have an infinite loop, but still have a chance to read everything
-        local piece = ALL_PIECES[buf:readInt()]
-        if not piece then break end --- Reading was somehow corrupted, will wait until the next sync ping
-        piece:deserialize(buf)
-        if buf:available() <= 0 then break end
-    end
-    buf:close()
+    Outfit.runOnCompressed(str, function(piece, buf)
+        piece:deserialize(buf):equip()
+    end)
 end
 
 function pings.updateOutfit(serialized)
@@ -179,9 +246,29 @@ function pings.updateOutfit(serialized)
     local outfitView = Outfit.simplify()
     avatar:store("Piecewise.Current", outfitView)
 end
+
+__name = nil
 function Outfit:save(name)
+    if (self.cache[name]) then
+        if Logger.warn("Overwriting piece with same name!",
+                "Changes will be applied when the avatar is reloaded")
+        then
+            __name = utils.base64(self.cache[name])
+            printJson(toJson({
+                text = "[Copy old code to clipboard]",
+                color = "green",
+                clickEvent = {
+                    action = "figura_function",
+                    value =
+                    "require(\"piecewise.core\") host:clipboard(__name) __name = nil",
+
+                }
+            }))
+        end
+    end
+
     self.cache[name] = self.serialize(CURRENT_OUTFIT) --- SHUT UP I KNOW WHAT'S IN THE TABLE
-    config:setName("Toast.Outfits")
+    config:setName("Toast.Piecewise")
     config:save("saved", self.cache)
     return self.cache[name]
 end
@@ -191,7 +278,9 @@ function Outfit:load(name)
         Logger.debug(("No outfit found with name '%s', ignoring"):format(name))
         return
     end
+
     pings.updateOutfit(self.cache[name])
+    return self.cache[name]
 end
 
 local timer = -20
