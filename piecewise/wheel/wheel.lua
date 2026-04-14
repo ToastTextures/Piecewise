@@ -3,15 +3,19 @@ local MAIN_PAGE = page -- HEY YOU, YES YOU | UPDATE THIS IF YOU USE THE ACTION W
 
 local Piece, Outfit = require("../core") ---@type Toast.Piece, Toast.Outfit
 local Tintable ---@type Toast.Tintable?
+local Recolor ---@type Toast.Recolor?
 local utils = require("../utils") ---@type Toast.Utils
+local Stitcher = require("./stitcher")
 local validated, _t = pcall(function() return require("../tintable.tintable") end)
 if validated then Tintable = _t end
+validated, _t = pcall(function() return require("../tintable.recolor") end)
+if validated then Recolor = _t end
+
+local OutfitRegistry = {}
 
 if not host:isHost() then return end
 
 local OUTFIT_OFFSET = vec(0, -4, 0)
-
-local OUTFIT_TEXTURE_REGISTRY = {}
 
 local prevPage ---@type Page
 local categories = {} ---@type table<Toast.Part, Page>
@@ -34,7 +38,6 @@ local back = action_wheel:newAction()
     :setOnLeftClick(function()
         action_wheel:setPage(prevPage)
     end)
-
 
 for partName, title in pairs(PART_TYPES) do
     categories[partName] = action_wheel:newPage(partName)
@@ -67,35 +70,58 @@ local function addColors(piece, palette)
     end
 end
 
-local function justDeserialize(piece, buf) piece:deserialize(buf) end
-
-local function registerFromStorage()
-    for name, data in pairs(Outfit.cache) do
-        local ids = {}
-        for _, piece in ipairs(Outfit.runOnCompressed(data, justDeserialize)) do
-            ids[#ids + 1] = piece.id
-        end
-        print(toJson(ids))
-        categories.OUTFIT:newAction()
-            :setTitle(name)
-            :onLeftClick(function()
-                if not host:isHost() then return end
-                Outfit.runOnCompressed(data, justDeserialize)
-            end)
-            :setItem(utils.versions.formatList:format(avatar:getEntityName(), toJson(ids)))
-    end
+local function justDeserialize(piece, buf)
+    piece:deserialize(buf)
 end
+
 action_wheel:setPage(MAIN_PAGE)
 local SKULL = models:newPart("Piecewise.Skull", "SKULL")
 
 ---@param piece Toast.Piece
 local function clone(piece)
     local cloned
-
     for _, part in pairs(piece.options.modelParts) do
         cloned = utils.deepCopy(part)
         cloned:setPos(piece.options.skullOffset)
         SKULL:addChild(cloned)
+    end
+    return cloned
+end
+
+---@param piece Toast.Piece
+local function setUpOutfit(piece, outfitName)
+    if piece.type ~= "Tintable" then return end ---@cast piece Toast.Tintable
+    local region, tex = Stitcher.addToRegistry(piece)
+    piece = piece:copy(("saved_%s_%s"):format(outfitName, piece.name))
+    piece.options.texture = tex
+    piece.options.bounds = region
+
+    OutfitRegistry[#OutfitRegistry + 1] = piece
+    piece:setColor(piece.options.primary, piece.options.secondary, false)
+    return piece.id
+end
+
+local function createOutfitAction(name, compressed)
+    local ids = {}
+    for _, piece in ipairs(Outfit.runOnCompressed(compressed, justDeserialize)) do
+        if (piece.type == "Tintable") then
+            setUpOutfit(name, piece)
+        end
+        ids[#ids + 1] = piece.id
+    end
+
+    categories.OUTFIT:newAction()
+        :setTitle(name)
+        :onLeftClick(function()
+            if not host:isHost() then return end
+            Outfit.runOnCompressed(compressed, justDeserialize)
+        end)
+        :setItem(("minecraft:leather_chestplate{display:{color:%d}}"):format(vectors.rgbToInt(Recolor.randomColor()))) --utils.versions.formatList:format(avatar:getEntityName(), toJson(ids))
+end
+
+local function registerFromStorage()
+    for name, compressed in pairs(Outfit.cache) do
+        createOutfitAction(name, compressed)
     end
 end
 
@@ -140,10 +166,10 @@ for id, piece in pairs(Piece._ALL) do
         end
     end
 
-    categories[partType]:newAction()
+    local act = categories[partType]:newAction()
         :setItem(utils.versions.format:format(avatar:getEntityName(), id))
         :setTitle(piece.name)
-        :onToggle(function(state, self)
+        :onToggle(function(state)
             if state then piece:equip() else piece:unequip() end
 
             if piece.type == "Tintable" and piece.options.palette then ---@cast piece Toast.Tintable ---@cast piece.options Toast.Tintable.Options
@@ -151,6 +177,14 @@ for id, piece in pairs(Piece._ALL) do
             end
         end
         )
+
+    if categories[partType]:getActions()[2] == act then
+        for _, action in ipairs(page:getActions()) do
+            if action:getTitle() == PART_TYPES[piece.options.part] then
+                action:setItem(utils.versions.format:format(avatar:getEntityName(), id))
+            end
+        end
+    end
     ::continue::
 end
 
@@ -158,16 +192,22 @@ registerFromStorage()
 ---@type Event.ChatSendMessage.func
 local captureName = function(message)
     if message then
-        print(Outfit:save(message))
+        createOutfitAction(message, Outfit:save(message))
     end
     events.CHAT_SEND_MESSAGE:remove("Capture Name")
     return nil
 end
 
 
+--- utils.runLater(200, function()
+---     Stitcher.map:update()
+---     host:setClipboard(Stitcher.map:save())
+--- end)
+
 do
     categories.OUTFIT:newAction()
         :title("Save Outfit!")
+        :setItem("minecraft:chest")
         :setOnLeftClick(function()
             events.CHAT_SEND_MESSAGE:register(captureName, "Capture Name")
             printJson("Enter the name of the saved outfit: ")
