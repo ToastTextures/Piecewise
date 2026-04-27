@@ -134,6 +134,7 @@ end
 function events.SKULL_RENDER(_, _, item, _, _)
     if not item then return end
     local stored = utils.versions.parse(item)
+    if not stored then return end
     if type(stored) == "number" then
         stored = { stored }
     end
